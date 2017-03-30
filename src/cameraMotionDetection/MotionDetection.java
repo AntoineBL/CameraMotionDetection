@@ -27,6 +27,7 @@ import javax.swing.JLabel;
 import org.opencv.core.CvType;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 
@@ -40,18 +41,23 @@ public class MotionDetection {
 	final static int tmax=136;
 	final static int tmin=49;
 	
+	final static int AREA_NOIS = 1000;
+	
 	static boolean testCamera = false;
 	
 	static Mat imag=null;
 	final static int HEIGHT = 480;
 	final static int WIDTH = 640;
+	
+	final static float DISTANCE_CORRECTION = (float) (WIDTH*0.025);
 
 	public static void main(String[] args) {
+		
 		JFrame jframe = new JFrame("HUMAN MOTION DETECTOR FPS");
 		jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		JLabel vidpanel = new JLabel();
 		jframe.setContentPane(vidpanel);
-		jframe.setSize(640, 480);
+		jframe.setSize(WIDTH,HEIGHT);
 		jframe.setVisible(true);
 
 		Mat frame = new Mat();
@@ -60,7 +66,7 @@ public class MotionDetection {
 		Mat tempon_frame = null;
 		ArrayList<Rect> array = new ArrayList<Rect>();
 		VideoCapture camera = new VideoCapture("http://admin:azerty@192.168.43.203/video/mjpg.cgi");
-		Size sz = new Size(640, 480);
+		Size sz = new Size(WIDTH, HEIGHT);
 		int i = 0;
 		
 		HttpQuery t =  new HttpQuery();
@@ -89,9 +95,8 @@ public class MotionDetection {
 
 				if (i == 1) {
 					Core.subtract(outerBox, tempon_frame, diff_frame);
-					Imgproc.adaptiveThreshold(diff_frame, diff_frame, 255,
-							Imgproc.ADAPTIVE_THRESH_MEAN_C,
-							Imgproc.THRESH_BINARY_INV, 5, 2);
+					//Imgproc.adaptiveThreshold(diff_frame, diff_frame, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 2);
+					Imgproc.threshold(diff_frame, diff_frame, 25, 255, Imgproc.THRESH_BINARY);
 					array = detection_contours(diff_frame);
 					if (array.size() > 0) {
 
@@ -99,30 +104,20 @@ public class MotionDetection {
 						while (it2.hasNext()) {
 							Rect obj = it2.next();
 							Imgproc.rectangle(imag, obj.br(), obj.tl(),new Scalar(0, 255, 0), 1);
-
-							if(rectMax.area() < obj.area() ){
-								rectMax = obj;
-							}
+							
+							rectMax = rectangleMax(rectMax, obj);
+							
 						}
 
-						if(rectMax.area() > 1000 ){
+						if(rectMax.area() > AREA_NOIS && !t.getMove()) {
 							
-							depX = (int) ((WIDTH/2-rectMax.x)/16);
-							depY = (int) ((HEIGHT/2-rectMax.y)/16);
+							depX = (int) ((WIDTH/2-rectMax.x - rectMax.width/2)/DISTANCE_CORRECTION);
+							depY = (int) ((HEIGHT/2-rectMax.y - rectMax.height/2)/DISTANCE_CORRECTION);
 							System.out.println("deplacement "+depX+" "+ depY);
 							t.setUrl("http://admin:azerty@192.168.43.203/cgi/ptdc.cgi?command=set_relative_pos&posX="+-depX+"&posY="+depY);
 							t.setDetectMotion(true);
-							System.out.println(t.getDetectMotion());
-
-							//httpController.controlCamera("http://admin:azerty@192.168.43.203/cgi/ptdc.cgi?command=set_relative_pos&posX="+-10+"&posY="+0);
-						}
-//						if (testCamera == false) {
-//							testCamera = !testCamera;
-//							System.out.println("RENTRE ICI");;
-//							httpController.controlCamera("http://admin:azerty@192.168.43.203/cgi/ptdc.cgi?command=set_relative_pos&posX="+10+"&posY="+0);
-//						}
-						
-						
+							//System.out.println(t.getDetectMotion());
+						}					
 					}
 				}
 
@@ -156,8 +151,7 @@ public class MotionDetection {
 		Mat v = new Mat();
 		Mat vv = outmat.clone();
 		List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-		Imgproc.findContours(vv, contours, v, Imgproc.RETR_LIST,
-				Imgproc.CHAIN_APPROX_SIMPLE);
+		Imgproc.findContours(vv, contours, v, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
 
 		double maxArea = 100;
 		int maxAreaIdx = -1;
@@ -182,19 +176,19 @@ public class MotionDetection {
 		return rect_array;
 
 	}
-	//		if(rectMax.area() < obj.area() ){
-	//		rectMax = obj;
-	//	}
-	//}
-
-	//if(rectMax.area() > 50){
-	//
-	//	depX =(int) (WIDTH/2-rectMax.x);
-	//	depY = (int) (HEIGHT/2-rectMax.y);
-	//	System.out.println(depX+" "+ depY);
-	//	//httpController.controlCamera("http://admin:azerty@192.168.43.43/cgi/ptdc.cgi?command=set_relative_pos&posX="+depX+"&posY="+0);
-	//
-	//}
+	
+	public static Rect rectangleMax(Rect rect1, Rect rect2){
+		if(rect1.area() < rect2.area() ){
+			return rect2 ;
+		}
+		return  rect1;
+	}
+	
+	public static Rect globalRect(){
+		
+		
+		return null;
+	}
 
 
 }

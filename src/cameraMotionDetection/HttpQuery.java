@@ -64,17 +64,15 @@ public class HttpQuery extends Thread {
 	@Override
 	public void run() {
 		while(true){
-			System.out.println(detectMotion);
+			System.out.print("");// Strange behaviour if we comment this line
+
 			if (detectMotion) {
+				this.move  = true;
 				setDetectMotion(false);
 				controlCamera(url);
-				System.out.println("Détection de mouvement.");
-				try {
-					Thread.sleep(3000);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				//System.out.println("Détection de mouvement.");
+
+				this.move = false;
 				
 			}
 
