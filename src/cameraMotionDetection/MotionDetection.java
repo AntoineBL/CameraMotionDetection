@@ -5,6 +5,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.videoio.VideoCapture;
+import org.opencv.videoio.VideoWriter;
 
 import com.sun.javafx.scene.control.GlobalMenuAdapter;
 
@@ -39,7 +40,7 @@ public class MotionDetection {
 	}
 
 
-	
+
 
 	boolean testCamera = false;
 	private int noise_movement;
@@ -47,17 +48,46 @@ public class MotionDetection {
 	Mat imag=null;
 	final static int HEIGHT = 480;
 	final static int WIDTH = 640;
-	
+
 	final static String MAX_RECT_ALGO = "MAX_RECT_ALGO";
 	final static String GLOBAL_RECT_ALGO = "GLOBAL_RECT_ALGO";
-	
-	final static float DISTANCE_CORRECTION = (float) (WIDTH*0.025);
 
-	public void motionDetection(String algo, int noise, String ip, String username,  String passeword) {
+	final static float DISTANCE_CORRECTION = (float) (WIDTH*0.025);
+	
+	private int noise_mouvement;
+	private String algo;
+	private String ip;
+	private String username;
+	private String passeword;
+	private boolean folow;
+	private boolean record;
+	private VideoWriter vNormal;
+	private VideoWriter vGrey;
+	private VideoWriter vBlackWhite;
+	private VideoWriter vMotionDetection;
+
+
+	public MotionDetection(String algo, int noise, String ip, String username,  String passeword, boolean folow, boolean record){
+		this.algo = algo;
+		this.noise_mouvement = noise;
+		this.ip = ip;
+		this.username = username;
+		this.passeword = passeword;
+		this.folow = folow;
+		this.record = record;
+	}
+
+	public void motionDetection() {
+
+		if(record){
+			vNormal = new VideoWriter("video/videoNormal.mp4", VideoWriter.fourcc('H', '2', '6', '4'), 20, new Size(WIDTH, HEIGHT),true);
+			vGrey = new VideoWriter("video/videoGrey.mp4", VideoWriter.fourcc('H', '2', '6', '4'), 20, new Size(WIDTH, HEIGHT), false);
+			vBlackWhite = new VideoWriter("video/videoBlackWhite.mp4", VideoWriter.fourcc('H', '2', '6', '4'), 20, new Size(WIDTH, HEIGHT),false);
+			vMotionDetection = new VideoWriter("video/videoMotionDetection.mp4", VideoWriter.fourcc('H', '2', '6', '4'), 20, new Size(WIDTH, HEIGHT), true);
+		}
 		
-		noise_movement = noise;
-		
-		JFrame jframe = new JFrame("HUMAN MOTION DETECTOR");
+
+		JFrame jframe = new JFrame("Motion Detection");
 		jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		JLabel vidpanel = new JLabel();
 		jframe.setContentPane(vidpanel);
@@ -78,9 +108,11 @@ public class MotionDetection {
 
 		Rect rectMax;
 		int depX,depY;
+		int azert =0;
 
 
-		while (true) {
+		while (true && azert < 300) {
+			azert+=1;
 			rectMax = new Rect(0, 0, 0, 0 );
 
 			if (camera.read(frame)) {
@@ -99,7 +131,7 @@ public class MotionDetection {
 
 				if (i == 1) {
 					Core.subtract(outerBox, tempon_frame, diff_frame);
-					
+
 					if(algo ==  MAX_RECT_ALGO) {
 						Imgproc.adaptiveThreshold(diff_frame, diff_frame, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 2);
 
@@ -109,48 +141,71 @@ public class MotionDetection {
 
 					}
 					if(!t.getMove()){
-						array = detection_contours(diff_frame, t);
+						array = contourDetection(diff_frame, t);
 						if (array.size() > 0) {
 
 							Iterator<Rect> it2 = array.iterator();
-							Iterator<Rect> it3 = array.iterator();
-							Rect firstRect = it3.next();
+							
+							Rect firstRect = array.get(0);
+							
 							rectMax.x = firstRect.x; 
 							rectMax.y = firstRect.y; 
 							rectMax.width = firstRect.width; 
 							rectMax.height = firstRect.height;
 							while (it2.hasNext()) {
 								Rect obj = it2.next();
-								Imgproc.rectangle(imag, obj.br(), obj.tl(),new Scalar(0, 255, 0), 1);
+								//Imgproc.rectangle(imag, obj.br(), obj.tl(),new Scalar(0, 255, 0), 1);
 
 								rectMax = algoRect(algo, rectMax, obj);
 
 							}
 							Imgproc.rectangle(imag, rectMax.br(), rectMax.tl(),new Scalar(0, 0, 255), 3);
 
+							if(folow){
+								depX = (int) ((WIDTH/2-rectMax.x - rectMax.width/2)/DISTANCE_CORRECTION);
+								depY = (int) ((HEIGHT/2-rectMax.y - rectMax.height/2)/DISTANCE_CORRECTION);
+								System.out.println("deplacement "+depX+" "+ depY);
+								t.setUrl("http://"+username+":"+passeword+"@"+ip+"/cgi/ptdc.cgi?command=set_relative_pos&posX="+-depX+"&posY="+depY);
+								t.setDetectMotion(true);
+							}
 
-							depX = (int) ((WIDTH/2-rectMax.x - rectMax.width/2)/DISTANCE_CORRECTION);
-							depY = (int) ((HEIGHT/2-rectMax.y - rectMax.height/2)/DISTANCE_CORRECTION);
-							System.out.println("deplacement "+depX+" "+ depY);
-							t.setUrl("http://"+username+":"+passeword+"@"+ip+"/cgi/ptdc.cgi?command=set_relative_pos&posX="+-depX+"&posY="+depY);
-							t.setDetectMotion(true);
-							//System.out.println(t.getDetectMotion());
+
 
 						}
-
 					}
-
 				}
 
 				i = 1;
 
 				ImageIcon image = new ImageIcon(Mat2bufferedImage(imag));
+				
+				if(record){
+					vNormal.write(frame);
+					vGrey.write(outerBox);
+					vBlackWhite.write(diff_frame);
+					vMotionDetection.write(imag);
+				}
+				
+				
 				vidpanel.setIcon(image);
 				vidpanel.repaint();
 				tempon_frame = outerBox.clone();
 
 			}
+			//System.out.println(azert);
+
 		}
+		
+		if(record){
+			vNormal.release();
+			vGrey.release();
+			vBlackWhite.release();
+			vMotionDetection.release();
+		}
+		
+		jframe.dispose();
+		jframe.setVisible(false);
+
 	}
 	public BufferedImage Mat2bufferedImage(Mat image) {
 		MatOfByte bytemat = new MatOfByte();
@@ -168,7 +223,7 @@ public class MotionDetection {
 	}
 
 
-	public ArrayList<Rect> detection_contours(Mat outmat, HttpQuery t) {
+	public ArrayList<Rect> contourDetection(Mat outmat, HttpQuery t) {
 		Mat v = new Mat();
 		Mat vv = outmat.clone();
 		List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
@@ -195,22 +250,22 @@ public class MotionDetection {
 
 		}
 
-		v.release();
+
 
 		return rect_array;
 
 	}
-	
+
 	public Rect algoRect(String algo, Rect rect1,  Rect rect2){
 		switch (algo){
 		case MAX_RECT_ALGO:
 			return rectangleMax(rect1, rect2);
-			
+
 		case GLOBAL_RECT_ALGO :
 			return globalRect(rect1, rect2);
-			
+
 		}
-		
+
 		return null;
 	}
 
@@ -220,22 +275,23 @@ public class MotionDetection {
 		}
 		return  rect1;
 	}
-	
+
 	public Rect globalRect(Rect globalRect, Rect rect) {
-		
-		if(globalRect.x > rect.x) {
-			globalRect.x = rect.x;
-		}
-		if(globalRect.y > rect.y) {
-			globalRect.y = rect.y;
-		}
 		if(globalRect.x + globalRect.width < rect.x + rect.width) {
 			globalRect.width =  rect.x + rect.width - globalRect.x;
 		}
 		if(globalRect.y + globalRect.height < rect.y + rect.height) {
 			globalRect.height =  rect.y + rect.height - globalRect.y;
 		}
-			
+
+		if(globalRect.x > rect.x) {
+			globalRect.x = rect.x;
+		}
+		if(globalRect.y > rect.y) {
+			globalRect.y = rect.y;
+		}
+		
+
 		return globalRect;
 	}
 

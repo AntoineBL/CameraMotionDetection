@@ -71,10 +71,9 @@ public class HttpQuery extends Thread {
 				this.move  = true;
 				setDetectMotion(false);
 				controlCamera(url);
-				//System.out.println("Détection de mouvement.");
+				System.out.println("Détection de mouvement.");
 
 				this.move = false;
-				
 			}
 
 		}
