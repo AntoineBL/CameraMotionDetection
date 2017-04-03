@@ -108,11 +108,11 @@ public class MotionDetection {
 
 		Rect rectMax;
 		int depX,depY;
-		int azert =0;
+		int timeRecord_Bad =0;
 
 
-		while (true ) {
-			azert+=1;
+		while (timeRecord_Bad < 300 || !record) {
+			timeRecord_Bad+=1;
 			rectMax = new Rect(0, 0, 0, 0 );
 
 			if (camera.read(frame)) {
