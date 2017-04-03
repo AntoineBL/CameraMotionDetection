@@ -111,7 +111,7 @@ public class MotionDetection {
 		int azert =0;
 
 
-		while (true && azert < 300) {
+		while (true ) {
 			azert+=1;
 			rectMax = new Rect(0, 0, 0, 0 );
 
